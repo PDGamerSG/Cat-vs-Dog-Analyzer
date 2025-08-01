@@ -18,7 +18,7 @@ st.image(uploaded, use_container_width=True, caption="Your upload")
 img_bytes = uploaded.read()
 
 with st.spinner("Identifying…"):
-    result = classify.remote(img_bytes).result()
+    result = classify.remote(img_bytes)
 
 st.write(f"🐱 Cat: {result['cats_prob']:.1f}%   🐶 Dog: {result['dogs_prob']:.1f}%")
 st.success(f"It’s a **{result['label'].upper()}**!")
