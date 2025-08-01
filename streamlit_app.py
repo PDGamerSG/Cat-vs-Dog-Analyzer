@@ -6,7 +6,7 @@ load_dotenv()
 app, func= "cat-dog-app", "classify_image"
 classify = Function.from_name(app, func)
 st.set_page_config(page_title="Cat vs Dog", layout="centered")
-st.title("🐱 vs 🐶 Classifier")
+st.title("Cat vs Dog Classifier")
 uploaded = st.file_uploader("Upload a photo", type=["png","jpg","jpeg"])
 if not uploaded:
     st.stop()
