@@ -1,50 +1,52 @@
-import io, torch, torch.nn.functional as F
+import os, io
+import torch
+import torch.nn.functional as F
 from torchvision import models, transforms
 from PIL import Image as PILImage
 from modal import App, Image
 
-MODEL_FILENAME = "cat_dog_model.pth"
+MODEL_FILENAME    = "cat_dog_model.pth"
+HOST_MODEL_PATH   = "C:\Data\Coding Programs\Project\cat_dog_model.pth"
+CONTAINER_PATH    = f"/{MODEL_FILENAME}"
 
 app = App("cat-dog-app")
 modal_image = (
     Image.debian_slim()
          .pip_install(["torch", "torchvision", "Pillow"])
-         .add_local_file(MODEL_FILENAME, f"/{MODEL_FILENAME}", copy=True)
+         # use the host path as src, container path as dest
+         .add_local_file(HOST_MODEL_PATH, CONTAINER_PATH, copy=True)
 )
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = models.resnet50(weights=None)
+model  = models.resnet50(weights=None)
 model.fc = torch.nn.Linear(model.fc.in_features, 2)
-model.load_state_dict(torch.load(f"/{MODEL_FILENAME}", map_location=device))
+
+# At runtime pick the path that actually exists
+checkpoint = HOST_MODEL_PATH if os.path.exists(HOST_MODEL_PATH) else CONTAINER_PATH
+model.load_state_dict(torch.load(checkpoint, map_location=device))
 model.to(device).eval()
 
 preprocess = transforms.Compose([
     transforms.Resize(256),
     transforms.CenterCrop(224),
     transforms.ToTensor(),
-    transforms.Normalize(
-        mean=[0.485, 0.456, 0.406],
-        std =[0.229, 0.224, 0.225],
-    ),
+    transforms.Normalize(mean=[0.485,0.456,0.406],
+                         std=[0.229,0.224,0.225]),
 ])
 LABELS = ["cats", "dogs"]
 
-def classify_image_with_scores(image_bytes: bytes) -> dict:
-    img = PILImage.open(io.BytesIO(image_bytes)).convert("RGB")
-    batch = preprocess(img).unsqueeze(0).to(device)
+@app.function(image=modal_image, timeout=300)
+def classify_image(image_bytes: bytes) -> dict:
+    img    = PILImage.open(io.BytesIO(image_bytes)).convert("RGB")
+    batch  = preprocess(img).unsqueeze(0).to(device)
     with torch.no_grad():
         logits = model(batch)[0]
         probs  = F.softmax(logits, dim=0)
-    all_scores = { LABELS[i]: float(probs[i]) for i in range(len(LABELS)) }
-    idx = int(torch.argmax(probs))
     return {
-        "all_scores":      all_scores,
-        "predicted_label": LABELS[idx],
+        "cats_prob": float(probs[0]*100),
+        "dogs_prob": float(probs[1]*100),
+        "label":    LABELS[int(probs[1] > probs[0])],
     }
-
-@app.function(image=modal_image, timeout=300)
-def classify_image(image_bytes: bytes) -> dict:
-    return classify_image_with_scores(image_bytes)
 
 if __name__ == "__main__":
     app.deploy()
