@@ -28,7 +28,7 @@ preprocess = transforms.Compose([
     transforms.Normalize(mean=[0.485,0.456,0.406],
                          std=[0.229,0.224,0.225]),
 ])
-LABELS = ["cats", "dogs"]
+LABELS = ["cat", "dog"]
 @app.function(image=modal_image, timeout=300)
 def classify_image(image_bytes: bytes) -> dict:
     img    = PILImage.open(io.BytesIO(image_bytes)).convert("RGB")
