@@ -9,7 +9,7 @@ MODEL_FILENAME = "cat_dog_model.pth"
 app = App("cat-dog-app")
 modal_image = (
     Image.debian_slim()
-         .pip_install(["torch", "torchvision", "Pillow"])
+         .pip_install(["torch", "torchvision", "Pillow", "numpy"])
          .add_local_file(
              MODEL_FILENAME,
              f"/{MODEL_FILENAME}",
